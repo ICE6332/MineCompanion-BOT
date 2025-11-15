@@ -36,6 +36,9 @@ public class AIWebSocketClient extends WebSocketClient {
         LOGGER.info("WebSocket connected to: " + getURI());
         reconnectAttempts.set(0);
 
+        // 发送游戏内连接成功通知
+        NotificationManager.getInstance().sendConnectionSuccess();
+
         // 发送连接初始化消息
         sendConnectionInit();
     }
@@ -56,6 +59,9 @@ public class AIWebSocketClient extends WebSocketClient {
     public void onClose(int code, String reason, boolean remote) {
         LOGGER.info("WebSocket closed: code={}, reason={}, remote={}", code, reason, remote);
 
+        // 发送游戏内断开连接通知
+        NotificationManager.getInstance().sendDisconnected(reason);
+
         // 如果需要，尝试重连
         if (shouldReconnect && AICompanionConfig.getInstance().isAutoReconnect()) {
             scheduleReconnect();
@@ -65,6 +71,10 @@ public class AIWebSocketClient extends WebSocketClient {
     @Override
     public void onError(Exception ex) {
         LOGGER.error("WebSocket error: " + ex.getMessage());
+
+        // 发送游戏内错误通知
+        NotificationManager.getInstance().sendConnectionError(ex.getMessage());
+
         if (AICompanionConfig.getInstance().isDebugMode()) {
             LOGGER.error("WebSocket error details", ex);
         }
@@ -76,7 +86,7 @@ public class AIWebSocketClient extends WebSocketClient {
     private void sendConnectionInit() {
         String initMessage = "{\"type\":\"connection_init\",\"timestamp\":" +
             (System.currentTimeMillis() / 1000) +
-            ",\"data\":{\"client\":\"minecraft_mod\",\"version\":\"0.3.2-alpha.2\"}}";
+            ",\"data\":{\"client\":\"minecraft_mod\",\"version\":\"0.3.2-alpha.3\"}}";
         send(initMessage);
     }
 
@@ -92,6 +102,9 @@ public class AIWebSocketClient extends WebSocketClient {
             shouldReconnect = false;
             return;
         }
+
+        // 发送游戏内重连通知
+        NotificationManager.getInstance().sendReconnecting(attempt, maxAttempts);
 
         // 指数退避策略
         int delay = Math.min(AICompanionConfig.getInstance().getReconnectDelaySeconds() * attempt, 60);
