@@ -4,6 +4,7 @@ import carpet.patches.EntityPlayerMPFake;
 import com.aicompanion.command.AICompanionCommand;
 import com.aicompanion.config.AICompanionConfig;
 import com.aicompanion.network.ConnectionManager;
+import com.aicompanion.network.NotificationManager;
 import com.aicompanion.player.AIFakePlayerManager;
 import com.aicompanion.state.GameStateCollector;
 import net.fabricmc.api.ModInitializer;
@@ -55,7 +56,7 @@ public class AICompanionMod implements ModInitializer {
     public void onInitialize() {
         LOGGER.info("========================================");
         LOGGER.info("MineCompanion-BOT is initializing...");
-        LOGGER.info("Version: 0.3.2-alpha.2 (Interaction + Combat)");
+        LOGGER.info("Version: 0.3.2-alpha.3 (Interaction + Combat + Notifications)");
         LOGGER.info("========================================");
 
         // Check if Carpet Mod is loaded
@@ -127,6 +128,9 @@ public class AICompanionMod implements ModInitializer {
 
             // Disconnect WebSocket
             ConnectionManager.getInstance().disconnect();
+
+            // Cleanup notifications
+            NotificationManager.getInstance().cleanup();
 
             // Cleanup AI players
             AIFakePlayerManager.cleanup();

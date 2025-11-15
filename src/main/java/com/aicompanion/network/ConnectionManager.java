@@ -43,6 +43,9 @@ public class ConnectionManager {
     public void initialize(MinecraftServer server) {
         AICompanionConfig config = AICompanionConfig.getInstance();
 
+        // 初始化通知管理器
+        NotificationManager.getInstance().initialize(server);
+
         if (!config.isWebSocketEnabled()) {
             LOGGER.info("WebSocket is disabled in config");
             return;
