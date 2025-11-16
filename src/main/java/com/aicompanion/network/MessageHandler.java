@@ -47,12 +47,6 @@ public class MessageHandler {
             if (server != null) {
                 server.execute(() -> {
                     try {
-                        // 调试：每条消息先在聊天里提示类型，便于确认链路
-                        server.getPlayerManager().broadcast(
-                            Text.literal("[AI WS] 收到消息类型: " + type),
-                            false
-                        );
-
                         switch (type) {
                             case "action_command":
                                 handleActionCommand(json.getAsJsonObject("data"));
