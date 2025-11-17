@@ -49,7 +49,12 @@ public class MessageHandler {
                     try {
                         switch (type) {
                             case "action_command":
-                                handleActionCommand(json.getAsJsonObject("data"));
+                                if (json.has("data")) {
+                                    handleActionCommand(json.getAsJsonObject("data"));
+                                } else {
+                                    // 兼容扁平/紧凑格式：直接使用根对象
+                                    handleActionCommand(json);
+                                }
                                 break;
                             case "conversation_message":
                                 handleConversation(json.getAsJsonObject("data"));
@@ -93,6 +98,11 @@ public class MessageHandler {
      * 处理动作指令
      */
     private void handleActionCommand(JsonObject data) {
+        if (data == null) {
+            LOGGER.warn("action_command received without payload data");
+            return;
+        }
+
         if (!data.has("companionName") || !data.has("action")) {
             LOGGER.warn("action_command missing required fields");
             return;
