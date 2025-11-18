@@ -3,10 +3,13 @@ package com.aicompanion.command;
 import carpet.patches.EntityPlayerMPFake;
 import com.aicompanion.player.AIFakePlayerManager;
 import com.aicompanion.player.AIPlayerController;
+import com.aicompanion.network.ConnectionManager;
+import com.aicompanion.network.protocol.CompactMessage;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.google.gson.JsonObject;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -54,6 +57,44 @@ public class AICompanionCommand {
                     CommandManager.literal("list").executes(
                         AICompanionCommand::listCompanions
                     )
+                )
+                // /aicompanion say <消息>
+                .then(
+                    CommandManager.literal("say")
+                        .then(
+                            CommandManager.argument(
+                                "message",
+                                StringArgumentType.greedyString()
+                            )
+                                .executes(context -> {
+                                    ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+                                    String message = StringArgumentType.getString(context, "message");
+
+                                    // 构造紧凑消息
+                                    JsonObject compactMsg = CompactMessage.conversation(
+                                        player.getName().getString(),
+                                        message
+                                    );
+
+                                    // 发送到AI Service
+                                    ConnectionManager manager = ConnectionManager.getInstance();
+                                    if (manager.isConnected()) {
+                                        manager.sendEvent("conversation_request", compactMsg);
+
+                                        player.sendMessage(
+                                            Text.literal("§7[AI] 消息已发送: " + message),
+                                            false
+                                        );
+                                    } else {
+                                        player.sendMessage(
+                                            Text.literal("§c[AI] WebSocket未连接，无法发送消息"),
+                                            false
+                                        );
+                                    }
+
+                                    return 1;
+                                })
+                        )
                 )
                 // /aicompanion follow <名字> [玩家名]
                 .then(
