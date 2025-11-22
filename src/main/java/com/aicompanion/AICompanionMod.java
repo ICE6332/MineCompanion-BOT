@@ -136,6 +136,13 @@ public class AICompanionMod implements ModInitializer {
         });
         LOGGER.info("已注册 FakePlayer 加入事件处理器");
 
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            if (handler.player instanceof EntityPlayerMPFake fakePlayer) {
+                AIFakePlayerManager.onFakePlayerDisconnect(fakePlayer.getUuid());
+            }
+        });
+        LOGGER.info("已注册 FakePlayer 断开事件处理器");
+
         // 注册服务器停止事件以进行清理
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             LOGGER.info("服务器正在停止 - 清理 AI 系统...");

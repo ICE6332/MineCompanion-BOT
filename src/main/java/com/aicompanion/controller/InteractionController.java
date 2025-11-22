@@ -6,6 +6,7 @@ import net.minecraft.block.BlockState;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemUsageContext;
+import net.minecraft.util.ActionResult;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
@@ -55,7 +56,7 @@ public class InteractionController {
         }
 
         ItemStack stack = player.getMainHandStack();
-        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem blockItem)) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
             return;
         }
 
@@ -64,15 +65,19 @@ public class InteractionController {
             return;
         }
 
-        Block block = blockItem.getBlock();
-        BlockState newState = block.getDefaultState();
-        world.setBlockState(pos, newState);
+        // 使用和玩家一致的放置流程，确保替换规则、朝向与回调被正确触发
+        BlockHitResult hitResult = new BlockHitResult(
+            Vec3d.ofCenter(pos),
+            Direction.UP,
+            pos,
+            false
+        );
+        ItemUsageContext context = new ItemUsageContext(player, Hand.MAIN_HAND, hitResult);
 
-        if (!player.getAbilities().creativeMode) {
-            stack.decrement(1);
+        ActionResult result = stack.useOnBlock(context);
+        if (result.isAccepted()) {
+            player.swingHand(Hand.MAIN_HAND);
         }
-
-        player.swingHand(Hand.MAIN_HAND);
     }
 
     /**
@@ -120,4 +125,3 @@ public class InteractionController {
         // No per-tick interaction logic yet.
     }
 }
-

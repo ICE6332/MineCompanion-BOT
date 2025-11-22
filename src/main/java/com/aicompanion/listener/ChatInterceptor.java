@@ -26,7 +26,7 @@ import java.util.Collection;
 public final class ChatInterceptor {
     private static final Logger LOGGER = LoggerFactory.getLogger("ChatInterceptor");
     private static final Gson GSON = new Gson();
-
+    private static boolean registered = false;
     private ChatInterceptor() {
     }
 
@@ -35,8 +35,13 @@ public final class ChatInterceptor {
      * 必须在 WebSocket 连接管理器初始化之后调用，以确保发送可用。
      */
     public static void register() {
+        if (registered) {
+            LOGGER.warn("ChatInterceptor already registered,skipping duplicate registration.");
+            return;
+        }
         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(ChatInterceptor::onChatMessage);
-        LOGGER.info("ChatInterceptor registered.");
+        registered = true;
+        LOGGER.info("ChatInterceptor registered");
     }
 
     /**
