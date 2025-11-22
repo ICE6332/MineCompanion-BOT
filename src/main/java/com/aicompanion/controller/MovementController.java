@@ -14,10 +14,16 @@ public class MovementController {
 
     private final EntityPlayerMPFake player;
 
+    private Vec3d lastTargetPos = null;
+    private Vec3d cachedDirection = null;
+    private int pathUpdateCounter = 0;
+
     /**
      * 默认移动速度
      */
     private static final double DEFAULT_SPEED = 0.2;
+
+    private static final int PATH_UPDATE_INTERVAL = 5;
 
     /**
      * 跟随目标玩家
@@ -137,6 +143,7 @@ public class MovementController {
         }
 
         double distance = player.squaredDistanceTo(followTarget);
+        Vec3d currentTarget = new Vec3d(followTarget.getX(), followTarget.getY(), followTarget.getZ());
 
         // 如果距离太远（超过 20 格），传送过去
         if (distance > 400.0) {
@@ -146,19 +153,35 @@ public class MovementController {
                 followTarget.getZ(),
                 true
             );
+            cachedDirection = null;
+            lastTargetPos = null;
+            pathUpdateCounter = 0;
             return;
         }
 
         // 如果距离超过跟随阈值，向目标移动
         if (distance > followDistance * followDistance) {
-            moveTo(new Vec3d(
-                followTarget.getX(),
-                followTarget.getY(),
-                followTarget.getZ()
-            ));
+            boolean targetMovedSignificantly = lastTargetPos == null || lastTargetPos.squaredDistanceTo(currentTarget) >= 0.25;
+
+            if (targetMovedSignificantly || pathUpdateCounter++ >= PATH_UPDATE_INTERVAL) {
+                lastTargetPos = currentTarget;
+                cachedDirection = currentTarget.subtract(new Vec3d(player.getX(), player.getY(), player.getZ()));
+                if (cachedDirection.lengthSquared() > 0.0001) {
+                    cachedDirection = cachedDirection.normalize();
+                }
+                pathUpdateCounter = 0;
+            }
+
+            if (cachedDirection != null && cachedDirection.lengthSquared() > 0) {
+                applyCachedMovement();
+            } else {
+                moveTo(currentTarget);
+            }
         } else {
             // 距离合适，停止移动
             stop();
+            cachedDirection = null;
+            pathUpdateCounter = 0;
         }
     }
 
@@ -167,6 +190,13 @@ public class MovementController {
      */
     public void stop() {
         player.setVelocity(Vec3d.ZERO);
+    }
+
+    private void applyCachedMovement() {
+        double dx = cachedDirection.x * DEFAULT_SPEED;
+        double dz = cachedDirection.z * DEFAULT_SPEED;
+        player.setVelocity(dx, player.getVelocity().y, dz);
+        updateYawTowards(new Vec3d(player.getX(), player.getY(), player.getZ()).add(cachedDirection));
     }
 
     /**

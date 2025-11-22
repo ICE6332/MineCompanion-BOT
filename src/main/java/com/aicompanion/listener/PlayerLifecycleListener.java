@@ -4,6 +4,7 @@ import com.aicompanion.network.AIWebSocketClient;
 import com.aicompanion.network.ConnectionManager;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 public final class PlayerLifecycleListener {
     private static final Logger LOGGER = LoggerFactory.getLogger("PlayerLifecycleListener");
     private static final Gson GSON = new Gson();
+    private static boolean registered = false;
 
     private PlayerLifecycleListener() {
     }
@@ -23,9 +25,14 @@ public final class PlayerLifecycleListener {
      * 注册玩家生命周期事件监听。
      */
     public static void register() {
+        if (registered) {
+            LOGGER.warn("PlayerLifecycleListener already registered,skipping duplicate registration.");
+            return;
+        }
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onPlayerJoin(handler));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> onPlayerDisconnect(handler));
-        LOGGER.info("PlayerLifecycleListener registered.");
+            registered = true;
+            LOGGER.info("PlayerLifecycleListener registered.");
     }
 
     private static void onPlayerJoin(ServerPlayNetworkHandler handler) {

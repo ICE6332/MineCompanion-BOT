@@ -4,6 +4,7 @@ import carpet.patches.EntityPlayerMPFake;
 import com.aicompanion.AICompanionMod;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -38,10 +39,12 @@ public class AIFakePlayerManager {
     /**
      * 待注册的 FakePlayer（等待登录事件）
      * Key: FakePlayer 名称（忽略大小写）
-     * Value: 创建者的 UUID
+     * Value: 创建者及时间戳
      */
-    private static final ConcurrentHashMap<String, UUID> PENDING_REGISTRATION =
+    private static final ConcurrentHashMap<String, PendingRegistration> PENDING_REGISTRATION =
         new ConcurrentHashMap<>();
+
+    private static int cleanupCounter = 0;
 
     /**
      * 创建一个新的 AI FakePlayer
@@ -176,7 +179,7 @@ public class AIFakePlayerManager {
 
         // 7. 添加到待注册列表，等待 FakePlayer 登录事件
         // 使用小写作为 key 以支持忽略大小写匹配
-        PENDING_REGISTRATION.put(normalizedName, owner.getUuid());
+        PENDING_REGISTRATION.put(normalizedName, new PendingRegistration(owner.getUuid()));
 
         AICompanionMod.LOGGER.info(
             "FakePlayer '{}' creation initiated, waiting for join event...",
@@ -229,9 +232,9 @@ public class AIFakePlayerManager {
         );
 
         // 检查是否在待注册列表中（忽略大小写）
-        UUID creatorUUID = PENDING_REGISTRATION.remove(normalizedName);
+        PendingRegistration registration = PENDING_REGISTRATION.remove(normalizedName);
 
-        if (creatorUUID == null) {
+        if (registration == null) {
             AICompanionMod.LOGGER.warn(
                 "FakePlayer '{}' joined but was not in pending registration list. " +
                 "It may have been created by Carpet Mod directly.",
@@ -263,7 +266,7 @@ public class AIFakePlayerManager {
         // 通知创建者
         ServerPlayerEntity creator = server
             .getPlayerManager()
-            .getPlayer(creatorUUID);
+            .getPlayer(registration.creatorUUID);
 
         if (creator != null) {
             creator.sendMessage(
@@ -337,6 +340,12 @@ public class AIFakePlayerManager {
                 );
             }
         });
+
+        // 定期清理过期的待注册项，避免内存泄漏
+        if (++cleanupCounter >= 6000) { // 约300秒
+            cleanupCounter = 0;
+            cleanupExpiredPendingRegistrations();
+        }
     }
 
     /**
@@ -347,6 +356,15 @@ public class AIFakePlayerManager {
         PLAYERS.clear();
         NAME_TO_UUID.clear();
         PENDING_REGISTRATION.clear();
+    }
+
+    public static void onFakePlayerDisconnect(UUID uuid) {
+        AIPlayerController controller = PLAYERS.remove(uuid);
+        if (controller != null) {
+            controller.cleanup();
+            NAME_TO_UUID.entrySet().removeIf(entry -> entry.getValue().equals(uuid));
+            AICompanionMod.LOGGER.info("Cleaned up AI companion: {}", controller.getName());
+        }
     }
 
     /**
@@ -373,5 +391,26 @@ public class AIFakePlayerManager {
      */
     private static String normalizeName(String name) {
         return name.toLowerCase(Locale.ROOT);
+    }
+
+    private static void cleanupExpiredPendingRegistrations() {
+        long now = System.currentTimeMillis();
+        PENDING_REGISTRATION.entrySet().removeIf(entry -> {
+            boolean expired = (now - entry.getValue().timestamp) > 30_000;
+            if (expired) {
+                AICompanionMod.LOGGER.warn("Removed expired pending registration for '{}'.", entry.getKey());
+            }
+            return expired;
+        });
+    }
+
+    private static class PendingRegistration {
+        final UUID creatorUUID;
+        final long timestamp;
+
+        PendingRegistration(UUID creatorUUID) {
+            this.creatorUUID = creatorUUID;
+            this.timestamp = System.currentTimeMillis();
+        }
     }
 }

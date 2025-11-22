@@ -26,6 +26,8 @@ public class ConnectionManager {
     private MessageHandler messageHandler;
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final Gson gson = new Gson();
+    private final ThreadLocal<StringBuilder> bufferPool =
+        ThreadLocal.withInitial(() -> new StringBuilder(512));
 
     private ConnectionManager() {
     }
@@ -114,13 +116,15 @@ public class ConnectionManager {
 
         try {
             Message message = new Message("game_state_update", state);
-            String json = gson.toJson(message);
+            StringBuilder buffer = bufferPool.get();
+            buffer.setLength(0);
+            gson.toJson(message, buffer);
 
             if (AICompanionConfig.getInstance().isDebugMode()) {
-                LOGGER.debug("Sending game state: " + json);
+                LOGGER.debug("Sending game state: " + buffer);
             }
 
-            client.send(json);
+            client.send(buffer.toString());
         } catch (Exception e) {
             LOGGER.error("Failed to send game state", e);
         }
@@ -136,8 +140,10 @@ public class ConnectionManager {
 
         try {
             Message message = new Message(eventType, eventData);
-            String json = gson.toJson(message);
-            client.send(json);
+            StringBuilder buffer = bufferPool.get();
+            buffer.setLength(0);
+            gson.toJson(message, buffer);
+            client.send(buffer.toString());
         } catch (Exception e) {
             LOGGER.error("Failed to send event: " + eventType, e);
         }
@@ -153,11 +159,13 @@ public class ConnectionManager {
 
         try {
             // 紧凑消息不包装在Message中，直接发送
-            String json = gson.toJson(compactData);
-            client.send(json);
+            StringBuilder buffer = bufferPool.get();
+            buffer.setLength(0);
+            gson.toJson(compactData, buffer);
+            client.send(buffer.toString());
 
             if (AICompanionConfig.getInstance().isDebugMode()) {
-                LOGGER.debug("Sent compact message: " + json);
+                LOGGER.debug("Sent compact message: " + buffer);
             }
         } catch (Exception e) {
             LOGGER.error("Failed to send compact event: " + eventType, e);

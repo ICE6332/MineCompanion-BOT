@@ -19,7 +19,6 @@ import net.minecraft.text.Text;
 
 /**
  * AI 伙伴指令系统 - FakePlayer 版本
- *
  * 提供生成、控制、管理 AI FakePlayer 的命令
  */
 public class AICompanionCommand {
